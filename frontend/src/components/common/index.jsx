@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { TASK_STATUS, statusLabel } from "../lib/constants";
-import { users } from "../mock/data";
+import { TASK_STATUS, statusLabel } from "../../lib/constants";
+import { users } from "../../mock";
 export const Avatar = ({ id, size = "" }) => {
   const u = users.find((x) => x.id === id) || users[0];
   return (

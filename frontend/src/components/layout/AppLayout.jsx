@@ -17,8 +17,8 @@ import {
   authService,
   notificationService,
   searchService,
-} from "../services/services";
-import { Avatar } from "./common";
+} from "../../services";
+import { Avatar } from "../common";
 const links = [
   ["/dashboard", "Dashboard", LayoutDashboard],
   ["/projects", "Projects", FolderKanban],
@@ -35,7 +35,20 @@ export function AppLayout({ children, user, onLogout }) {
   const navigate = useNavigate();
   const loc = useLocation();
   useEffect(() => {
-    notificationService.getNotifications().then(setNotes);
+    let active = true;
+
+    async function fetchNotifications() {
+      const nextNotes = await notificationService.getNotifications();
+      if (active) setNotes(nextNotes);
+    }
+
+    fetchNotifications();
+    window.addEventListener("notifications-updated", fetchNotifications);
+
+    return () => {
+      active = false;
+      window.removeEventListener("notifications-updated", fetchNotifications);
+    };
   }, [loc.pathname]);
   const submit = (e) => {
     e.preventDefault();
@@ -48,10 +61,15 @@ export function AppLayout({ children, user, onLogout }) {
         <span>
           Dev<span>Sync</span>
         </span>
-        <button className="mobile-close" onClick={() => setMobile(false)}>
-          <X size={20} />
-        </button>
       </Link>
+      <button
+        className="mobile-close"
+        type="button"
+        aria-label="Close navigation"
+        onClick={() => setMobile(false)}
+      >
+        <X size={20} />
+      </button>
       <nav>
         {links.map(([path, label, Icon]) => (
           <NavLink onClick={() => setMobile(false)} key={path} to={path}>

@@ -1,4 +1,4 @@
-import { users, projects, tasks, comments, notifications } from "../mock/data";
+import { users, projects, tasks, comments, notifications } from "../mock";
 const pause = (value) =>
   new Promise((resolve) => setTimeout(() => resolve(value), 180));
 const uid = (prefix) => `${prefix}-${Date.now()}`;
