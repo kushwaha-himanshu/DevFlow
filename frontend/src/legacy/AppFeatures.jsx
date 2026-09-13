@@ -174,8 +174,8 @@ function AuthPage({ register = false }) {
     { login, register: signUp } = useAuth();
   const [form, setForm] = useState({
       name: "",
-      email: "himanshu@example.com",
-      password: "password123",
+      email: "",
+      password: "",
     }),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);

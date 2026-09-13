@@ -8,8 +8,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setUser(authService.getCurrentUser());
-    setLoading(false);
+    // Check if user has a valid token and load their data from backend
+    const initializeAuth = async () => {
+      try {
+        const token = localStorage.getItem("devsync_token");
+        if (token) {
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error("Failed to initialize auth:", error);
+        // Clear invalid token
+        localStorage.removeItem("devsync_token");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const value = {
@@ -17,12 +33,11 @@ export function AuthProvider({ children }) {
     loading,
     login: async (...args) => setUser(await authService.login(...args)),
     register: async (data) => setUser(await authService.register(data)),
-    logout: () => {
-      authService.logout();
+    logout: async () => {
+      await authService.logout();
       setUser(null);
     },
     updateUser: (nextUser) => {
-      localStorage.setItem("devsync_mock_user", JSON.stringify(nextUser));
       setUser(nextUser);
     },
   };
