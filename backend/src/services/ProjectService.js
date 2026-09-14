@@ -3,7 +3,8 @@ import {
     findProjectById,
     findProjectsByMember,
     updateProject as updateProjectRepository,
-    addMember as addMemberRepository
+    addMember as addMemberRepository,
+    removeMember as removeMemberRepository
 } from "../repositories/ProjectRepository.js";
 import {
     findUserByEmail
@@ -127,7 +128,7 @@ const updateProject = async (projectId, userId, updateData) => {
 
     return updatedProject;
 };
-
+// Add a member
 const addMember = async (projectId, ownerId, email, role) => {
 
     // 1. Find the project
@@ -189,11 +190,64 @@ const addMember = async (projectId, ownerId, email, role) => {
 
     return updatedProject;
 };
+// Remove a member
+const removeMember = async (projectId, ownerId, userId) => {
 
+    // 1. Find project
+    const project = await findProjectById(projectId);
+
+    if (!project) {
+        throw new Error("Project not found");
+    }
+
+
+    // 2. Find requester in project members
+    const owner = project.members.find(
+        (member) =>
+            member.user.toString() === ownerId.toString()
+    );
+
+    if (!owner) {
+        throw new Error("You are not a member of this project");
+    }
+
+
+    // 3. Only OWNER can remove members
+    if (owner.role !== "OWNER") {
+        throw new Error("Only project owner can remove members");
+    }
+
+
+    // 4. Prevent owner from removing themselves
+    if (ownerId.toString() === userId.toString()) {
+        throw new Error("Project owner cannot remove themselves");
+    }
+
+
+    // 5. Check target user is actually a member
+    const memberExists = project.members.some(
+        (member) =>
+            member.user.toString() === userId.toString()
+    );
+
+    if (!memberExists) {
+        throw new Error("User is not a member of this project");
+    }
+
+
+    // 6. Remove member
+    const updatedProject = await removeMemberRepository(
+        projectId,
+        userId
+    );
+
+    return updatedProject;
+};
 export {
     createProject,
     getProjects,
     getProjectById,
     updateProject,
-    addMember
+    addMember,
+    removeMember
 };
