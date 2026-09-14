@@ -1,6 +1,10 @@
 import User from "../models/user.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import {
+  verifyFirebaseToken,
+  findOrCreateGoogleUser
+} from "../services/GoogleAuthService.js";
 const generateAccessAndRefreshToken=async (userId)=>{
 try {
   
@@ -233,6 +237,60 @@ return res.status(200).json({
 
   }
 }
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        message: "Firebase ID token is required"
+      });
+    }
+
+    // Verify token with Firebase
+    const decodedToken = await verifyFirebaseToken(idToken);
+
+    // Find existing user or create new one
+    const user = await findOrCreateGoogleUser(decodedToken);
+
+    // Generate your normal application tokens
+    const { accessToken, refreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    const userData = await User.findById(user._id)
+      .select("-password -refreshToken");
+
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // Same cookies as normal login
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax"
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax"
+    });
+
+    return res.status(200).json({
+      message: "Google login successful",
+      user: userData,
+      accessToken,
+      refreshToken
+    });
+
+  } catch (error) {
+    console.error("Google login error:", error);
+
+    return res.status(401).json({
+      message: "Google authentication failed"
+    });
+  }
+};
 
 export const logout=async(req,res)=>{
   try{
