@@ -17,15 +17,7 @@ const firebaseConfig = {
 };
 
 console.log("Firebase Config:", firebaseConfig);
-// const firebaseConfig = {
-//   apiKey: "AIzaSyC--fFwfeBwM3yvwXT3KhbCPF36ipcf5oE",
-//   authDomain: "devsync-5e791.firebaseapp.com",
-//   projectId: "devsync-5e791",
-//   storageBucket: "devsync-5e791.firebasestorage.app",
-//   messagingSenderId: "683515333266",
-//   appId: "1:683515333266:web:185ffce4befa6b34d8744b",
-//   measurementId: "G-JNEN72LE45"
-// };
+
 
 const requiredConfig = [
   firebaseConfig.apiKey,
