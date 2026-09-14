@@ -1,7 +1,5 @@
 import { TASK_STATUS, statusLabel } from "../../lib/constants";
 import { users } from "../../mock/users";
-import { TaskCard } from "../task/TaskCard";
-import { ProjectCard } from "../project/ProjectCard";
 
 export const Avatar = ({ id, size = "" }) => {
   const u = users.find((x) => x.id === id) || users[0];
@@ -65,5 +63,3 @@ export const StatCard = ({ label, value, sub, icon }) => (
 );
 
 export const statusOptions = Object.values(TASK_STATUS);
-
-export { TaskCard, ProjectCard };

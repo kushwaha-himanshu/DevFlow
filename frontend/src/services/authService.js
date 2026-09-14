@@ -12,15 +12,10 @@ const mapUser = (backendUser) => ({
 
 export const authService = {
   getCurrentUser: async () => {
-    const token = localStorage.getItem("devsync_token");
-    if (!token) return null;
-
     try {
       const response = await api.get("/auth/me");
       return mapUser(response.data.user);
     } catch (error) {
-      // Token is invalid/expired, clear it
-      localStorage.removeItem("devsync_token");
       return null;
     }
   },
@@ -28,10 +23,7 @@ export const authService = {
   login: async (email, password) => {
     try {
       const response = await api.post("/auth/login", { email, password });
-      const { user, accessToken } = response.data;
-
-      // Store token for future requests
-      localStorage.setItem("devsync_token", accessToken);
+      const { user } = response.data;
 
       return mapUser(user);
     } catch (error) {
@@ -48,15 +40,24 @@ export const authService = {
         email,
         password,
       });
-      const { user, accessToken } = response.data;
-
-      // Store token for future requests
-      localStorage.setItem("devsync_token", accessToken);
+      const { user } = response.data;
 
       return mapUser(user);
     } catch (error) {
       const message =
         error.response?.data?.message || "Registration failed. Please try again.";
+      throw new Error(message);
+    }
+  },
+
+  loginWithGoogle: async (idToken) => {
+    try {
+      const response = await api.post("/auth/google", { idToken });
+      return mapUser(response.data.user);
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        "Google sign-in failed. Please try again.";
       throw new Error(message);
     }
   },
@@ -69,8 +70,7 @@ export const authService = {
       // Continue even if logout endpoint fails
       console.error("Logout API call failed:", error);
     } finally {
-      // Always clear token from frontend
-      localStorage.removeItem("devsync_token");
+      // The backend clears the HttpOnly authentication cookies.
     }
   },
 };
