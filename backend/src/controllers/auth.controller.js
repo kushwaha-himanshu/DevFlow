@@ -174,9 +174,7 @@ try{
     user:{
       id:user._id,
       fullname:user.fullname,
-      email:user.email,
-      accessToken,
-      refreshToken
+      email:user.email
     }
   });
 
@@ -220,9 +218,7 @@ export const login =async (req , res) =>{
 
 return res.status(200).json({
   message:"Login successful",
-  user:userData,
-  accessToken,
-  refreshToken
+  user:userData
 })
    
     
@@ -278,9 +274,7 @@ export const googleLogin = async (req, res) => {
 
     return res.status(200).json({
       message: "Google login successful",
-      user: userData,
-      accessToken,
-      refreshToken
+      user: userData
     });
 
   } catch (error) {

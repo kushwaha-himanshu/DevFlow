@@ -8,18 +8,13 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user has a valid token and load their data from backend
+    // The browser automatically sends the HttpOnly authentication cookie.
     const initializeAuth = async () => {
       try {
-        const token = localStorage.getItem("devsync_token");
-        if (token) {
-          const currentUser = await authService.getCurrentUser();
-          setUser(currentUser);
-        }
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
       } catch (error) {
         console.error("Failed to initialize auth:", error);
-        // Clear invalid token
-        localStorage.removeItem("devsync_token");
       } finally {
         setLoading(false);
       }
@@ -33,6 +28,8 @@ export function AuthProvider({ children }) {
     loading,
     login: async (...args) => setUser(await authService.login(...args)),
     register: async (data) => setUser(await authService.register(data)),
+    loginWithGoogle: async (idToken) =>
+      setUser(await authService.loginWithGoogle(idToken)),
     logout: async () => {
       await authService.logout();
       setUser(null);

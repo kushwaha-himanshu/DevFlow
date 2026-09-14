@@ -20,6 +20,10 @@ const findOrCreateGoogleUser = async (decodedToken) => {
     throw new Error("Google account email is required");
   }
 
+  if (!decodedToken.email_verified) {
+    throw new Error("Google account email must be verified");
+  }
+
   let user = await User.findOne({
     googleId: uid
   });
@@ -35,7 +39,7 @@ const findOrCreateGoogleUser = async (decodedToken) => {
 
   if (user) {
     user.googleId = uid;
-    user.authProvider = "GOOGLE";
+    user.authProvider = "google";
     user.avatar = picture || user.avatar;
 
     await user.save();
@@ -45,10 +49,10 @@ const findOrCreateGoogleUser = async (decodedToken) => {
 
   // Create new Google user
   user = await User.create({
-    name: name || "Google User",
+    fullname: name || "Google User",
     email: email.toLowerCase(),
     googleId: uid,
-    authProvider: "GOOGLE",
+    authProvider: "google",
     avatar: picture || ""
   });
 

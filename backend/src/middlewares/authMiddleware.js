@@ -1,13 +1,11 @@
 import jwt from "jsonwebtoken";
 import  User  from "../models/user.js";
-import bcrypt from "bcrypt";
 
 export const verifyJwt = async (req, res, next) => {
     
   const token =
     req.cookies?.accessToken ||
     req.headers.authorization?.replace("Bearer ", "");
-    console.log("Token from request:", token); // Debugging log
 
   if (!token) {
     return res.status(400).json({
@@ -30,15 +28,7 @@ export const verifyJwt = async (req, res, next) => {
         message: "Unauthorized: User not found",
       });
     }
-console.log("Decoded JWT payload:", decoded); // Debugging log
     req.user = user;
-
-
-console.log("req.user =", req.user);
-
-console.log("Cookies:", req.cookies);
-console.log("Cookie Header:", req.headers.cookie);
-console.log("Token:", token);
 
     next();
   } catch (err) {
