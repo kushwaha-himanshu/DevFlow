@@ -3,7 +3,8 @@ import {
     getProjects,
     getProjectById,
     updateProject,
-    addMember
+    addMember,
+    removeMember
 } from "../services/ProjectService.js";
 
 
@@ -116,10 +117,33 @@ const addMemberController = async (req, res) => {
         });
     }
 };
+// Remove Member Controller
+const removeMemberController = async (req, res) => {
+    try {
+        const project = await removeMember(
+            req.params.projectId,
+            req.user._id,
+            req.params.userId
+        );
+
+        res.status(200).json({
+            success: true,
+            message: "Member removed successfully",
+            project
+        });
+
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 export {
     createProjectController,
     getProjectsController,
     getProjectByIdController,
     updateProjectController,
-    addMemberController
+    addMemberController,
+    removeMemberController
 };

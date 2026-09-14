@@ -52,10 +52,28 @@ const addMember = async (projectId, userId, role) => {
 
     return project;
 };
+const removeMember = async (projectId, userId) => {
+    const project = await Project.findByIdAndUpdate(
+        projectId,
+        {
+            $pull: {
+                members: {
+                    user: userId
+                }
+            }
+        },
+        {
+            new: true
+        }
+    );
+
+    return project;
+};
 export {
     createProject,
     findProjectById,
     findProjectsByMember,
     updateProject,
-    addMember
+    addMember,
+    removeMember
 }

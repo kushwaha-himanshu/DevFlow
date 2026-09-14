@@ -5,7 +5,8 @@ import {
     getProjectsController,
     getProjectByIdController,
     updateProjectController,
-    addMemberController
+    addMemberController,
+    removeMemberController
 } from "../controllers/ProjectController.js";
 
 import {verifyJwt} from "../middlewares/authMiddleware.js";
@@ -48,5 +49,10 @@ router.post(
     addMemberController
 );
 
-
+// Remove Member from Project
+router.delete(
+    "/:projectId/members/:userId",
+    verifyJwt,
+    removeMemberController
+);
 export default router;
