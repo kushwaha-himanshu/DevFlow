@@ -1,1 +1,42 @@
-export { projects } from "./index";
+export const projects = [
+  {
+    id: "project-1",
+    name: "Interview Platform",
+    key: "INT",
+    description: "Online interview and assessment platform",
+    ownerId: "user-1",
+    memberIds: ["user-1", "user-2", "user-3", "user-4"],
+    progress: 75,
+    color: "#6d5dfc",
+  },
+  {
+    id: "project-2",
+    name: "DevSync",
+    key: "DEV",
+    description: "Developer-first collaboration workspace",
+    ownerId: "user-1",
+    memberIds: ["user-1", "user-2", "user-3"],
+    progress: 48,
+    color: "#0ea5e9",
+  },
+  {
+    id: "project-3",
+    name: "E-Commerce App",
+    key: "ECO",
+    description: "A frictionless commerce experience",
+    ownerId: "user-2",
+    memberIds: ["user-1", "user-2", "user-5"],
+    progress: 32,
+    color: "#f59e0b",
+  },
+  {
+    id: "project-4",
+    name: "Portfolio Website",
+    key: "POR",
+    description: "Personal portfolio and case studies",
+    ownerId: "user-1",
+    memberIds: ["user-1", "user-4"],
+    progress: 90,
+    color: "#10b981",
+  },
+];

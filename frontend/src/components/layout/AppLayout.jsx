@@ -13,12 +13,10 @@ import {
   X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import {
-  authService,
-  notificationService,
-  searchService,
-} from "../../services";
+import { notificationService } from "../../services";
 import { Avatar } from "../common";
+import { useAuth } from "../../context/AuthContext";
+
 const links = [
   ["/dashboard", "Dashboard", LayoutDashboard],
   ["/projects", "Projects", FolderKanban],
@@ -28,12 +26,14 @@ const links = [
   ["/teams", "Teams", Users],
   ["/settings", "Settings", Settings],
 ];
+
 export function AppLayout({ children, user, onLogout }) {
   const [mobile, setMobile] = useState(false);
   const [query, setQuery] = useState("");
   const [notes, setNotes] = useState([]);
   const navigate = useNavigate();
   const loc = useLocation();
+
   useEffect(() => {
     let active = true;
 
@@ -50,10 +50,12 @@ export function AppLayout({ children, user, onLogout }) {
       window.removeEventListener("notifications-updated", fetchNotifications);
     };
   }, [loc.pathname]);
+
   const submit = (e) => {
     e.preventDefault();
     if (query.trim()) navigate(`/search?q=${encodeURIComponent(query)}`);
   };
+
   const sidebar = (
     <aside className="sidebar">
       <Link className="brand" to="/dashboard">
@@ -81,10 +83,10 @@ export function AppLayout({ children, user, onLogout }) {
         ))}
       </nav>
       <div className="sidebar-user">
-        <Avatar id={user.id} />
+        <Avatar id={user?.id} />
         <div>
-          <strong>{user.name}</strong>
-          <small>{user.email}</small>
+          <strong>{user?.name}</strong>
+          <small>{user?.email}</small>
         </div>
         <button aria-label="Logout" onClick={onLogout}>
           <LogOut size={17} />
@@ -92,6 +94,7 @@ export function AppLayout({ children, user, onLogout }) {
       </div>
     </aside>
   );
+
   return (
     <div className="app-shell">
       {sidebar}
@@ -113,11 +116,22 @@ export function AppLayout({ children, user, onLogout }) {
           {notes.some((x) => !x.read) && <i />}
         </Link>
         <div className="top-profile">
-          <Avatar id={user.id} />
-          <span>{user.name.split(" ")[0]}</span>
+          <Avatar id={user?.id} />
+          <span>{user?.name ? user.name.split(" ")[0] : "User"}</span>
         </div>
       </header>
       <main>{children}</main>
     </div>
   );
 }
+
+export function Shell({ children }) {
+  const { user, logout } = useAuth();
+  return (
+    <AppLayout user={user} onLogout={logout}>
+      {children}
+    </AppLayout>
+  );
+}
+
+export default AppLayout;

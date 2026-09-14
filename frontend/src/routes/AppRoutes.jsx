@@ -15,7 +15,7 @@ import Settings from "../pages/Settings";
 import Search from "../pages/SearchResults";
 import NotFound from "../pages/NotFound";
 import ProtectedRoute from "./ProtectedRoute";
-import { Shell } from "../legacy/AppFeatures";
+import { Shell } from "../components/layout";
 
 const protectedPage = (element) => (
   <ProtectedRoute>

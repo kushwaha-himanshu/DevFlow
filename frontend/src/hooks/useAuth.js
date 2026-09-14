@@ -1,1 +1,4 @@
-export { useAuth as default } from "../legacy/AppFeatures";
+import { useAuth } from "../context/AuthContext";
+
+export { useAuth };
+export default useAuth;
