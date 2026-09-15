@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getGoogleIdToken } from "../../services/firebase";
+import { getGoogleIdToken, getGithubIdToken } from "../../services/firebase";
 
 export function AuthPage({ register = false }) {
   const nav = useNavigate();
-  const { login, register: signUp, loginWithGoogle } = useAuth();
+  const { login, register: signUp, loginWithGoogle, loginWithGithub } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -38,6 +38,23 @@ export function AuthPage({ register = false }) {
     try {
       const idToken = await getGoogleIdToken();
       await loginWithGoogle(idToken);
+      nav("/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signInWithGithub = async () => {
+    setBusy(true);
+    setError("");
+
+    try {
+      const idToken = await getGithubIdToken();
+
+      await loginWithGithub(idToken);
+
       nav("/dashboard");
     } catch (err) {
       setError(err.message);
@@ -119,7 +136,7 @@ export function AuthPage({ register = false }) {
               <button type="button" onClick={signInWithGoogle} disabled={busy}>
                 G&nbsp;&nbsp; Google
               </button>
-              <button type="button">◉&nbsp;&nbsp; GitHub</button>
+              <button type="button" onClick={signInWithGithub}>◉&nbsp;&nbsp; GitHub</button>
             </div>
             <p className="login-signup">
               Already have an account? <Link to="/login">Login</Link>
@@ -190,7 +207,7 @@ export function AuthPage({ register = false }) {
             <button type="button" onClick={signInWithGoogle} disabled={busy}>
               G&nbsp;&nbsp; Google
             </button>
-            <button type="button">◉&nbsp;&nbsp; GitHub</button>
+            <button type="button" onClick={signInWithGithub}>◉&nbsp;&nbsp; GitHub</button>
           </div>
           <p className="login-signup">
             Don't have an account?{" "}

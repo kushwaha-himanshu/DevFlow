@@ -59,7 +59,53 @@ const findOrCreateGoogleUser = async (decodedToken) => {
   return user;
 };
 
+const findOrCreateGithubUser = async (decodedToken) => {
+  const {
+    uid,
+    email,
+    name,
+    picture
+  } = decodedToken;
+
+  if (!email) {
+    throw new Error("GitHub account email is required");
+  }
+
+  let user = await User.findOne({
+    githubId: uid
+  });
+
+  if (user) {
+    return user;
+  }
+
+  user = await User.findOne({
+    email: email.toLowerCase()
+  });
+
+  if (user) {
+    user.githubId = uid;
+    user.authProvider = "GITHUB";
+    user.avatar = picture || user.avatar;
+
+    await user.save();
+
+    return user;
+  }
+
+  user = await User.create({
+    fullname: name || "GitHub User",
+    email: email.toLowerCase(),
+    githubId: uid,
+    authProvider: "github",
+    avatar: picture || ""
+  });
+
+  return user;
+};
+
 export {
   verifyFirebaseToken,
-  findOrCreateGoogleUser
+  findOrCreateGoogleUser,
+  findOrCreateGithubUser
 };

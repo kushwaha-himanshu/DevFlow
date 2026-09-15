@@ -30,6 +30,10 @@ export function AuthProvider({ children }) {
     register: async (data) => setUser(await authService.register(data)),
     loginWithGoogle: async (idToken) =>
       setUser(await authService.loginWithGoogle(idToken)),
+
+    loginWithGithub: async (idToken) =>
+      setUser(await authService.loginWithGithub(idToken)),
+
     logout: async () => {
       await authService.logout();
       setUser(null);
