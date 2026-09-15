@@ -20,6 +20,8 @@ import { ProjectDialog } from "../components/project/ProjectDialog";
 
 export function Projects() {
   const [ps, setPs] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("ALL");
@@ -28,16 +30,31 @@ export function Projects() {
   const [syncNotice, setSyncNotice] = useState("");
   const { user } = useAuth();
 
-  const load = () => projectService.getProjects().then(setPs);
+  const load = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await projectService.getProjects();
+      setPs(data);
+    } catch (err) {
+      setError(
+        err.response?.data?.message || err.message || "Failed to load projects"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     load();
   }, []);
 
+  const userId = user?.id || user?._id;
+
   const visibleProjects = (ps || [])
     .filter((p) => {
-      if (filter === "OWNED") return p.ownerId === user?.id;
-      if (filter === "MEMBER") return p.memberIds.includes(user?.id);
+      if (filter === "OWNED") return p.ownerId === userId;
+      if (filter === "MEMBER") return p.memberIds.includes(userId);
       return true;
     })
     .filter((p) =>
@@ -93,6 +110,15 @@ export function Projects() {
           {syncNotice}
         </div>
       )}
+      {error && (
+        <div
+          className="projects-notice"
+          role="alert"
+          style={{ color: "#d92d20", background: "#fef3f2" }}
+        >
+          {error}
+        </div>
+      )}
       <div className="projects-toolbar">
         <div
           className="project-filters"
@@ -119,8 +145,8 @@ export function Projects() {
                     value === "ALL"
                       ? true
                       : value === "OWNED"
-                        ? p.ownerId === user?.id
-                        : p.memberIds.includes(user?.id),
+                        ? p.ownerId === userId
+                        : p.memberIds.includes(userId),
                   ).length
                 }
               </b>
@@ -146,7 +172,7 @@ export function Projects() {
           </select>
         </label>
       </div>
-      {!ps ? (
+      {loading && !ps ? (
         <Loading label="Loading projects…" />
       ) : (
         <>
@@ -158,7 +184,18 @@ export function Projects() {
             ))}
           </div>
           {!visibleProjects.length && (
-            <EmptyState title="No projects match your search" />
+            <EmptyState
+              title={
+                ps && ps.length === 0
+                  ? "No projects yet"
+                  : "No projects match your search"
+              }
+              subtitle={
+                ps && ps.length === 0
+                  ? "Create your first project to get started with DevSync."
+                  : undefined
+              }
+            />
           )}
           <div className="projects-summary">
             <div>
@@ -167,8 +204,10 @@ export function Projects() {
                 <small>Average project progress</small>
                 <strong>
                   {Math.round(
-                    ps.reduce((total, project) => total + project.progress, 0) /
-                      (ps.length || 1),
+                    (ps || []).reduce(
+                      (total, project) => total + (project.progress || 0),
+                      0,
+                    ) / ((ps || []).length || 1),
                   )}
                   %
                 </strong>
@@ -195,8 +234,8 @@ export function Projects() {
         <ProjectDialog
           onClose={() => setOpen(false)}
           onCreate={async (d) => {
-            await projectService.createProject(d);
-            load();
+            const newProject = await projectService.createProject(d);
+            setPs((prev) => (prev ? [newProject, ...prev] : [newProject]));
           }}
         />
       )}

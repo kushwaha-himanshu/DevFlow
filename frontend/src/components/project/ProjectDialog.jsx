@@ -8,6 +8,9 @@ export function ProjectDialog({ onClose, onCreate }) {
     description: "",
     visibility: "private",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
   const generatedKey = (data.name || "NEW")
     .replace(/[^a-zA-Z0-9]/g, "")
     .slice(0, 3)
@@ -19,8 +22,25 @@ export function ProjectDialog({ onClose, onCreate }) {
         className="dialog project-dialog form-grid"
         onSubmit={async (e) => {
           e.preventDefault();
-          await onCreate(data);
-          onClose();
+          try {
+            setIsSubmitting(true);
+            setError(null);
+            await onCreate({
+              name: data.name,
+              description: data.description,
+              key: data.key || generatedKey,
+              visibility: data.visibility,
+            });
+            onClose();
+          } catch (err) {
+            setError(
+              err.response?.data?.message ||
+                err.message ||
+                "Failed to create project"
+            );
+          } finally {
+            setIsSubmitting(false);
+          }
         }}
       >
         <div className="project-dialog-header">
@@ -38,10 +58,29 @@ export function ProjectDialog({ onClose, onCreate }) {
             className="dialog-close"
             aria-label="Close modal"
             onClick={onClose}
+            disabled={isSubmitting}
           >
             <X size={18} />
           </button>
         </div>
+
+        {error && (
+          <div
+            className="dialog-error"
+            role="alert"
+            style={{
+              color: "#d92d20",
+              fontSize: 13,
+              background: "#fef3f2",
+              border: "1px solid #fee4e2",
+              padding: "8px 12px",
+              borderRadius: "6px",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
         <label className="dialog-field">
           Project name <span className="required">*</span>
           <input
@@ -49,6 +88,7 @@ export function ProjectDialog({ onClose, onCreate }) {
             autoFocus
             placeholder="e.g. Interview Platform"
             value={data.name}
+            disabled={isSubmitting}
             onChange={(e) => setData({ ...data, name: e.target.value })}
           />
         </label>
@@ -60,6 +100,7 @@ export function ProjectDialog({ onClose, onCreate }) {
             rows="3"
             placeholder="Describe your project goals, repositories, or target sprint milestones..."
             value={data.description}
+            disabled={isSubmitting}
             onChange={(e) => setData({ ...data, description: e.target.value })}
           />
         </label>
@@ -73,6 +114,7 @@ export function ProjectDialog({ onClose, onCreate }) {
             className="project-key-input"
             placeholder="e.g. INT"
             value={data.key}
+            disabled={isSubmitting}
             onChange={(e) =>
               setData({ ...data, key: e.target.value.toUpperCase() })
             }
@@ -91,6 +133,7 @@ export function ProjectDialog({ onClose, onCreate }) {
               type="radio"
               name="visibility"
               value="private"
+              disabled={isSubmitting}
               checked={data.visibility === "private"}
               onChange={(e) => setData({ ...data, visibility: e.target.value })}
             />
@@ -106,6 +149,7 @@ export function ProjectDialog({ onClose, onCreate }) {
               type="radio"
               name="visibility"
               value="public"
+              disabled={isSubmitting}
               checked={data.visibility === "public"}
               onChange={(e) => setData({ ...data, visibility: e.target.value })}
             />
@@ -119,11 +163,22 @@ export function ProjectDialog({ onClose, onCreate }) {
           </label>
         </fieldset>
         <div className="dialog-actions">
-          <button type="button" className="btn secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </button>
-          <button className="btn primary">
-            Create Project <ArrowRight size={15} />
+          <button className="btn primary" disabled={isSubmitting}>
+            {isSubmitting ? (
+              "Creating…"
+            ) : (
+              <>
+                Create Project <ArrowRight size={15} />
+              </>
+            )}
           </button>
         </div>
       </form>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -29,12 +29,12 @@ import {
   X,
   Info,
 } from "lucide-react";
-import { projects } from "../../mock/projects";
+import { useAuth } from "../../context/AuthContext";
 import { users } from "../../mock/users";
 import { tasks } from "../../mock/tasks";
 import { statusLabel } from "../../lib/constants";
 import { projectService } from "../../services/projectService";
-import { Avatar, EmptyState } from "../common";
+import { Avatar, EmptyState, Loading } from "../common";
 import { ProjectTabs } from "./ProjectTabs";
 import { Board } from "../board/Board";
 import { TaskList } from "../board/TaskList";
@@ -67,11 +67,29 @@ function ProjectDetail({ label, value }) {
 }
 
 function ProjectOverview({ p }) {
+  const { user } = useAuth();
+  const currentUserId = user?.id || user?._id;
+
   const ts = tasks.filter((t) => t.projectId === p.id);
   const completed = ts.filter((t) => t.status === "DONE").length;
-  const members = p.memberIds
-    .map((id) => users.find((user) => user.id === id))
-    .filter(Boolean);
+
+  const members = (p.members || []).map((m) => {
+    const uId = typeof m.user === "object" ? m.user?._id || m.user?.id : m.user;
+    const foundUser = users.find((u) => u.id === uId || u._id === uId);
+    const isMe = currentUserId === uId;
+    return {
+      id: uId,
+      name:
+        (typeof m.user === "object" && (m.user.fullname || m.user.name)) ||
+        (isMe ? user?.name : foundUser?.name) ||
+        (m.role === "OWNER" ? "Project Owner" : "Team Member"),
+      email:
+        (typeof m.user === "object" && m.user.email) ||
+        (isMe ? user?.email : foundUser?.email) ||
+        "",
+      role: m.role || "DEVELOPER",
+    };
+  });
 
   return (
     <div className="project-overview-content">
@@ -108,12 +126,12 @@ function ProjectOverview({ p }) {
           <div className="project-card-heading">
             <h2>Project Overview</h2>
             <span>
-              <History size={14} /> Updated 2 hours ago
+              <History size={14} /> Updated recently
             </span>
           </div>
           <span className="project-section-label">Description</span>
           <p className="project-description">
-            {p.description}. A modern workspace for real-time collaboration,
+            {p.description || "No description provided."} A modern workspace for real-time collaboration,
             code review, and focused delivery across the engineering team.
           </p>
           <span className="project-section-label">Tags &amp; Environment</span>
@@ -137,7 +155,7 @@ function ProjectOverview({ p }) {
               <span className="connected-label">Connected</span>
             </div>
             <div className="repository-name">
-              <span>github.com/devsync/{p.key.toLowerCase()}-platform</span>
+              <span>github.com/devsync/{p.key?.toLowerCase()}-platform</span>
               <ExternalLink size={14} />
             </div>
             <div className="repository-meta">
@@ -252,8 +270,26 @@ function ProjectOverview({ p }) {
               </>
             }
           />
-          <ProjectDetail label="Created By" value="Himanshu K." />
-          <ProjectDetail label="Created Date" value="Jan 14, 2025" />
+          <ProjectDetail
+            label="Created By"
+            value={
+              p.ownerId === currentUserId
+                ? user?.name || "You"
+                : users.find((u) => u.id === p.ownerId)?.name || "Project Owner"
+            }
+          />
+          <ProjectDetail
+            label="Created Date"
+            value={
+              p.createdAt
+                ? new Date(p.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "Jan 14, 2025"
+            }
+          />
           <ProjectDetail
             label="Project Key"
             value={<b className="project-key-chip">{p.key}</b>}
@@ -301,35 +337,97 @@ function MemberSummary({ label, value, icon, tone = "" }) {
   );
 }
 
-function Members({ p }) {
+function Members({ p, onProjectUpdate }) {
+  const { user } = useAuth();
+  const currentUserId = user?.id || user?._id;
+  const isOwner =
+    p.ownerId === currentUserId ||
+    (p.members || []).some(
+      (m) =>
+        (m.user?._id || m.user) === currentUserId && m.role === "OWNER",
+    );
+
   const [open, setOpen] = useState(false);
-  const [ids, setIds] = useState(p.memberIds);
+  const [inviteEmail, setInviteEmail] = useState("");
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("ALL");
   const [memberRole, setMemberRole] = useState("DEVELOPER");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dialogError, setDialogError] = useState(null);
+  const [actionError, setActionError] = useState(null);
 
-  const add = async (id) => {
-    await projectService.addMember(p.id, id);
-    setIds([...projects.find((x) => x.id === p.id).memberIds]);
-    setOpen(false);
+  const handleAdd = async (emailToAdd) => {
+    const email = (emailToAdd || inviteEmail || "").trim();
+    if (!email) {
+      setDialogError("Please enter a valid user email.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setDialogError(null);
+      setActionError(null);
+      const updated = await projectService.addMember(p.id, {
+        email,
+        role: memberRole,
+      });
+      onProjectUpdate?.(updated);
+      setOpen(false);
+      setInviteEmail("");
+    } catch (err) {
+      setDialogError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to add member to project.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const members = ids
-    .map((id) => users.find((user) => user.id === id))
-    .filter(Boolean)
-    .filter((user) => role === "ALL" || user.role === role)
-    .filter((user) =>
-      `${user.name} ${user.email} ${user.role}`
+  const handleRemove = async (targetUserId) => {
+    try {
+      setActionError(null);
+      const updated = await projectService.removeMember(p.id, targetUserId);
+      onProjectUpdate?.(updated);
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to remove member.",
+      );
+    }
+  };
+
+  const memberList = (p.members || []).map((m) => {
+    const uId = typeof m.user === "object" ? m.user?._id || m.user?.id : m.user;
+    const foundUser = users.find((u) => u.id === uId || u._id === uId);
+    const isMe = currentUserId === uId;
+    return {
+      id: uId,
+      name:
+        (typeof m.user === "object" && (m.user.fullname || m.user.name)) ||
+        (isMe ? user?.name : foundUser?.name) ||
+        (m.role === "OWNER" ? "Project Owner" : `User (${String(uId).slice(-4)})`),
+      email:
+        (typeof m.user === "object" && m.user.email) ||
+        (isMe ? user?.email : foundUser?.email) ||
+        "",
+      role: m.role || "DEVELOPER",
+      isOwner: m.role === "OWNER" || uId === p.ownerId,
+    };
+  });
+
+  const filteredMembers = memberList
+    .filter((m) => role === "ALL" || m.role === role)
+    .filter((m) =>
+      `${m.name} ${m.email} ${m.role}`
         .toLowerCase()
         .includes(query.toLowerCase()),
     );
 
-  const developers = ids.filter(
-    (id) => users.find((user) => user.id === id)?.role === "DEVELOPER",
-  ).length;
-  const viewers = ids.filter(
-    (id) => users.find((user) => user.id === id)?.role === "VIEWER",
-  ).length;
+  const developers = memberList.filter((m) => m.role === "DEVELOPER").length;
+  const viewers = memberList.filter((m) => m.role === "VIEWER").length;
 
   return (
     <div className="team-management-page">
@@ -340,10 +438,19 @@ function Members({ p }) {
           <p>Manage members, roles, and access for this project repository.</p>
         </div>
       </div>
+      {actionError && (
+        <div
+          className="projects-notice"
+          role="alert"
+          style={{ color: "#d92d20", background: "#fef3f2", marginBottom: 16 }}
+        >
+          {actionError}
+        </div>
+      )}
       <div className="team-summary-grid">
         <MemberSummary
           label="Total Members"
-          value={ids.length}
+          value={memberList.length}
           icon={<UsersRound />}
         />
         <MemberSummary
@@ -386,9 +493,11 @@ function Members({ p }) {
           </select>
           <ChevronDown size={14} />
         </label>
-        <button className="btn primary" onClick={() => setOpen(true)}>
-          <UserPlus size={16} /> Add Member
-        </button>
+        {isOwner && (
+          <button className="btn primary" onClick={() => setOpen(true)}>
+            <UserPlus size={16} /> Add Member
+          </button>
+        )}
       </div>
       <div className="team-table-wrap">
         <table className="team-table">
@@ -403,7 +512,7 @@ function Members({ p }) {
             </tr>
           </thead>
           <tbody>
-            {members.map((u) => {
+            {filteredMembers.map((u) => {
               return (
                 <tr key={u.id}>
                   <td>
@@ -415,7 +524,7 @@ function Members({ p }) {
                       </span>
                     </div>
                   </td>
-                  <td className="team-email">{u.email}</td>
+                  <td className="team-email">{u.email || "—"}</td>
                   <td>
                     <span className={`team-role-badge ${u.role.toLowerCase()}`}>
                       <i />
@@ -435,18 +544,37 @@ function Members({ p }) {
                   </td>
                   <td>
                     <span
-                      className={`team-status ${u.id === "user-1" ? "online" : ""}`}
+                      className={`team-status ${u.id === currentUserId ? "online" : ""}`}
                     >
                       <i />
-                      {u.id === "user-1" ? "Active now" : "Active recently"}
+                      {u.id === currentUserId ? "Active now" : "Active recently"}
                     </span>
                   </td>
                   <td className="team-actions-cell">
-                    {u.id === "user-1" ? (
-                      <button className="btn secondary">Manage</button>
+                    {u.isOwner ? (
+                      <span
+                        className="badge priority-LOW"
+                        style={{ fontSize: 11, padding: "3px 8px" }}
+                      >
+                        Owner
+                      </span>
+                    ) : isOwner ? (
+                      <button
+                        className="btn secondary"
+                        style={{
+                          color: "#d92d20",
+                          fontSize: 12,
+                          padding: "4px 10px",
+                        }}
+                        type="button"
+                        onClick={() => handleRemove(u.id)}
+                      >
+                        Remove
+                      </button>
                     ) : (
                       <button
                         className="team-more"
+                        type="button"
                         aria-label={`More actions for ${u.name}`}
                       >
                         <MoreHorizontal size={18} />
@@ -459,7 +587,7 @@ function Members({ p }) {
           </tbody>
         </table>
       </div>
-      {!members.length && (
+      {!filteredMembers.length && (
         <EmptyState title="No team members match your filters" />
       )}
       {open && (
@@ -480,17 +608,42 @@ function Members({ p }) {
                 type="button"
                 aria-label="Close modal"
                 onClick={() => setOpen(false)}
+                disabled={isSubmitting}
               >
                 <X size={18} />
               </button>
             </div>
+
+            {dialogError && (
+              <div
+                className="dialog-error"
+                role="alert"
+                style={{
+                  color: "#d92d20",
+                  fontSize: 13,
+                  background: "#fef3f2",
+                  border: "1px solid #fee4e2",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  margin: "12px 0",
+                }}
+              >
+                {dialogError}
+              </div>
+            )}
+
             <label className="add-member-label">
-              Search User <small>Registered organization accounts</small>
+              Member Email <small>Registered user email address</small>
             </label>
             <div className="add-member-search">
-              <Search size={17} />
-              <input placeholder="Search by name or email..." />
-              <span>DevSync Org</span>
+              <Mail size={17} />
+              <input
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="Enter member email (e.g. user@example.com)..."
+                disabled={isSubmitting}
+              />
+              <span>DevSync</span>
             </div>
             <label className="add-member-label">Project Scope &amp; Role</label>
             <div className="member-role-options">
@@ -498,6 +651,7 @@ function Members({ p }) {
                 <input
                   type="radio"
                   name="member-role"
+                  disabled={isSubmitting}
                   checked={memberRole === "DEVELOPER"}
                   onChange={() => setMemberRole("DEVELOPER")}
                 />
@@ -514,6 +668,7 @@ function Members({ p }) {
                 <input
                   type="radio"
                   name="member-role"
+                  disabled={isSubmitting}
                   checked={memberRole === "VIEWER"}
                   onChange={() => setMemberRole("VIEWER")}
                 />
@@ -535,31 +690,34 @@ function Members({ p }) {
                 type="button"
                 className="btn secondary"
                 onClick={() => setOpen(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 className="btn primary"
-                onClick={() => {
-                  const candidate = users.find(
-                    (user) => !ids.includes(user.id),
-                  );
-                  if (candidate) add(candidate.id);
-                }}
+                disabled={isSubmitting}
+                onClick={() => handleAdd()}
               >
-                <UserPlus size={15} /> Add Member
+                <UserPlus size={15} /> {isSubmitting ? "Adding…" : "Add Member"}
               </button>
             </div>
             <div className="project-list add-member-list">
               {users
-                .filter((u) => !ids.includes(u.id))
+                .filter(
+                  (u) =>
+                    !memberList.some(
+                      (m) => m.id === u.id || m.email === u.email,
+                    ),
+                )
                 .map((u) => (
                   <button
                     className="project-row"
                     style={{ border: 0, background: "#fff", textAlign: "left" }}
                     key={u.id}
-                    onClick={() => add(u.id)}
+                    disabled={isSubmitting}
+                    onClick={() => handleAdd(u.email)}
                   >
                     <Avatar id={u.id} />
                     <div>
@@ -577,28 +735,72 @@ function Members({ p }) {
   );
 }
 
-function ProjectSettingsContent({ p }) {
-  const [data, setData] = useState({ ...p });
+function ProjectSettingsContent({ p, onProjectUpdate }) {
+  const [data, setData] = useState({
+    name: p.name || "",
+    description: p.description || "",
+    key: p.key || "",
+  });
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setData({
+      name: p.name || "",
+      description: p.description || "",
+      key: p.key || "",
+    });
+  }, [p]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setError(null);
+      setSaved(false);
+      const updated = await projectService.updateProject(p.id, {
+        name: data.name,
+        description: data.description,
+        key: data.key,
+      });
+      setSaved(true);
+      onProjectUpdate?.(updated);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to update project settings.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="panel" style={{ maxWidth: 660 }}>
       <h3>Project settings</h3>
       <p style={{ fontSize: 12, color: "#798397" }}>
-        Changes are stored in this mock workspace.
+        Update project details and general settings.
       </p>
-      <form
-        className="form-grid"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          await projectService.updateProject(p.id, data);
-          setSaved(true);
-        }}
-      >
+
+      {error && (
+        <div
+          className="projects-notice"
+          role="alert"
+          style={{ color: "#d92d20", background: "#fef3f2", marginBottom: 16 }}
+        >
+          {error}
+        </div>
+      )}
+
+      <form className="form-grid" onSubmit={handleSubmit}>
         <label>
           Project name
           <input
+            required
             value={data.name}
+            disabled={saving}
             onChange={(e) => setData({ ...data, name: e.target.value })}
           />
         </label>
@@ -606,21 +808,28 @@ function ProjectSettingsContent({ p }) {
           Description
           <textarea
             value={data.description}
+            disabled={saving}
             onChange={(e) => setData({ ...data, description: e.target.value })}
           />
         </label>
         <label>
           Project key
           <input
+            required
             value={data.key}
+            disabled={saving}
             onChange={(e) => setData({ ...data, key: e.target.value })}
           />
         </label>
         {saved && (
-          <small style={{ color: "#168257" }}>Saved successfully.</small>
+          <small style={{ color: "#168257" }}>
+            Project updated successfully.
+          </small>
         )}
         <div>
-          <button className="btn primary">Save changes</button>
+          <button className="btn primary" disabled={saving}>
+            {saving ? "Saving changes…" : "Save changes"}
+          </button>
         </div>
       </form>
       <hr
@@ -628,7 +837,7 @@ function ProjectSettingsContent({ p }) {
       />
       <h3 style={{ color: "#b42318" }}>Danger zone</h3>
       <p style={{ fontSize: 12, color: "#798397" }}>
-        Deleting a project is not enabled in the mock workspace.
+        Project deletion is managed by workspace administrators.
       </p>
     </div>
   );
@@ -636,9 +845,61 @@ function ProjectSettingsContent({ p }) {
 
 export function ProjectLayout({ mode = "overview" }) {
   const { projectId } = useParams();
-  const p = projects.find((x) => x.id === projectId);
+  const [p, setP] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!p) return <EmptyState title="Project not found" />;
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProject = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await projectService.getProject(projectId);
+        if (isMounted) setP(data);
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Failed to load project",
+          );
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    if (projectId) {
+      fetchProject();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [projectId]);
+
+  if (loading) {
+    return <Loading label="Loading project…" />;
+  }
+
+  if (error || !p) {
+    const isForbidden = error === "You are not a member of this project";
+    return (
+      <EmptyState
+        title={isForbidden ? "Access Denied" : "Project not found"}
+        subtitle={
+          isForbidden
+            ? "You don't have permission to view this project."
+            : error || "The requested project could not be found."
+        }
+      />
+    );
+  }
+
+  const handleProjectUpdate = (updatedProject) => {
+    setP(updatedProject);
+  };
 
   return (
     <div className="project-overview-page">
@@ -687,9 +948,12 @@ export function ProjectLayout({ mode = "overview" }) {
       ) : mode === "list" ? (
         <TaskList p={p} />
       ) : mode === "members" ? (
-        <Members p={p} />
+        <Members p={p} onProjectUpdate={handleProjectUpdate} />
       ) : (
-        <ProjectSettingsContent p={p} />
+        <ProjectSettingsContent
+          p={p}
+          onProjectUpdate={handleProjectUpdate}
+        />
       )}
     </div>
   );

@@ -23,7 +23,10 @@ export function Dashboard() {
   const [ps, setPs] = useState(null);
 
   useEffect(() => {
-    projectService.getProjects().then(setPs);
+    projectService
+      .getProjects()
+      .then(setPs)
+      .catch(() => setPs([]));
   }, []);
 
   if (!ps) return <Loading label="Loading your workspace…" />;
