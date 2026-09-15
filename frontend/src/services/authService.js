@@ -62,6 +62,21 @@ export const authService = {
     }
   },
 
+  loginWithGithub: async (idToken) => {
+    try {
+      const response = await api.post("/auth/github", { idToken });
+
+      return mapUser(response.data.user);
+
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        "GitHub sign-in failed. Please try again.";
+
+      throw new Error(message);
+    }
+  },
+
   logout: async () => {
     try {
       // Try to notify backend of logout

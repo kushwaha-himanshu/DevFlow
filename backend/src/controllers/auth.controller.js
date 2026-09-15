@@ -3,7 +3,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
   verifyFirebaseToken,
-  findOrCreateGoogleUser
+  findOrCreateGoogleUser,
+  findOrCreateGithubUser
 } from "../services/GoogleAuthService.js";
 const generateAccessAndRefreshToken=async (userId)=>{
 try {
@@ -282,6 +283,66 @@ export const googleLogin = async (req, res) => {
 
     return res.status(401).json({
       message: "Google authentication failed"
+    });
+  }
+};
+
+export const githubLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        message: "Firebase ID token is required"
+      });
+    }
+
+    // Verify Firebase ID token
+    const decodedToken = await verifyFirebaseToken(idToken);
+
+    // Find existing user or create a new GitHub user
+    const user = await findOrCreateGithubUser(decodedToken);
+
+    // Use your existing JWT system
+    const { accessToken, refreshToken } =
+      await generateAccessAndRefreshToken(user._id);
+
+    const userData = await User.findById(user._id)
+      .select("-password -refreshToken");
+
+    if (!userData) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // Same cookies as normal login
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax"
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax"
+    });
+
+    return res.status(200).json({
+      message: "GitHub login successful",
+      user: userData,
+      accessToken,
+      refreshToken
+    });
+
+  } catch (error) {
+    console.error("GitHub login error:", error);
+
+    return res.status(401).json({
+      message: "GitHub authentication failed"
     });
   }
 };

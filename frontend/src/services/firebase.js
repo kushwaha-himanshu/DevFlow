@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
 import {
   GoogleAuthProvider,
+  GithubAuthProvider,
   getAuth,
   signInWithPopup,
 } from "firebase/auth";
@@ -29,6 +30,7 @@ const requiredConfig = [
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+const githubProvider = new GithubAuthProvider();
 
 const googleErrorMessage = (error) => {
   if (error.code === "auth/popup-closed-by-user") {
@@ -56,5 +58,23 @@ export async function getGoogleIdToken() {
     return result.user.getIdToken();
   } catch (error) {
     throw new Error(googleErrorMessage(error));
+  }
+}
+
+export async function getGithubIdToken() {
+  if (requiredConfig.some((value) => !value)) {
+    throw new Error("GitHub sign-in is not configured yet.");
+  }
+
+  try {
+    const result = await signInWithPopup(auth, githubProvider);
+
+    return result.user.getIdToken();
+  } catch (error) {
+    console.error("GitHub sign-in error:", error);
+
+    throw new Error(
+      "GitHub sign-in could not be completed. Please try again."
+    );
   }
 }
